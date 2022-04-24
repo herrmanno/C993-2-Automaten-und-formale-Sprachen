@@ -1,9 +1,11 @@
-import Data.List (sortBy)
+import Data.List (sortBy,intercalate)
 import Data.Ord (comparing)
 import Data.Maybe (listToMaybe)
 import Data.Set qualified as S
 
-type Rule = (String,String)
+newtype Rule = Rule (String,String)
+instance Show Rule where
+    show (Rule (a,b)) = a <> " -> " <> b
 type Index = Int
 
 data Result a = Word a
@@ -11,13 +13,13 @@ data Result a = Word a
               | Cyclic a
                 deriving (Functor)
 
-instance Show a => Show (Result a) where
-    show (Word a) = show a
-    show (Substitution r i a) = show r <> ", " <> show i <> " -> " <> show a
-    show (Cyclic a) = "Cycle: " <> show a
+instance Show (Result String) where
+    show (Word a) = a
+    show (Substitution r i a) = "(" <> show r <> ", " <> show i <> ") -> " <> a
+    show (Cyclic a) = "Cycle: " <> a
 
 applyRule :: Rule -> String -> [Result String]
-applyRule r@(from,to) xs = go xs 1 where
+applyRule r@(Rule (from,to)) xs = go xs 1 where
     go :: String -> Index -> [Result String]
     go [] i = []
     go xs i | from == take (length from) xs =
@@ -46,20 +48,26 @@ iterateRules limit rs xs = go limit xs S.empty where
                     [] -> [[results]]
                     rest -> (results: ) <$> rest
 
-rules = [("ba", "ab"), ("cb", "bc"), ("ca", "ac")]
+rules = [Rule ("ba", "ab"), Rule ("cb", "bc"), Rule ("ca", "ac")]
 
 findLongestSubstitution limit start = 
     let result = ((Word start) :) <$> iterateRules limit rules start
-    in listToMaybe $ reverse $ sortBy (comparing length) result
+    in if limit < 0
+        then listToMaybe $ reverse $ sortBy (comparing length) result
+        else listToMaybe $ dropWhile ((<limit) . length) result
 
 main = do
+    putStrLn $ unlines
+        [ "Finde möglichst lange Ableitungen mit dem Wortersetzungssystem"
+        , intercalate ", " $ show <$> rules
+        ]
     let limit = -1
     case findLongestSubstitution limit "ccbbaa" of
-        Just r -> mapM_ print r
+        Just r -> mapM_ (\(i,r) -> putStrLn $ show i <> ". " <> show r) (zip [0..] r)
         Nothing -> print "No substitution"
-    print "-------------------"
-    let limit = 6
+    putStrLn $ replicate 60 '-'
+    let limit = 28
     case findLongestSubstitution limit "cbacbcacbcba" of
-        Just r -> mapM_ print r
+        Just r -> mapM_ (\(i,r) -> putStrLn $ show i <> ". " <> show r) (zip [0..] r)
         Nothing -> print "No substitution"
 
